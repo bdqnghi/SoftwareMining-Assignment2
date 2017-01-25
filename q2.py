@@ -4,13 +4,6 @@ import networkx.drawing.nx_pydot as nx_pydot
 from collections import defaultdict
 import re
 
-def extract_assign_expression(label):
-	# m = re.search("==",label)
-	m = re.search('if(.+?)goto', label)
-	if m:
-		return m.group(1)
-	return None
-
 def recursive_simple_cycles(G):
     def _unblock(thisnode):
         """Recursively unblock and remove nodes from B[thisnode]."""
@@ -65,6 +58,13 @@ def recursive_simple_cycles(G):
             dummy=circuit(startnode, startnode, component)
     return result
 
+def extract_assign_expression(label):
+    # m = re.search("==",label)
+    m = re.search('if(.+?)goto', label)
+    if m:
+        return m.group(1)
+    return None
+
 def find_branching_node(cycle):
 	for n in cycle:
 		label = G2.node[n]['label']
@@ -73,33 +73,57 @@ def find_branching_node(cycle):
 	return None
 
 def find_assignment_node(cycle):
-	node = list()
-	for n in cycle:
-		label = G2.node[n]['label']
-		if "=" in label:
-			node.append(n)
-	return node
+    node = list()
+    for n in cycle:
+        label = G2.node[n]['label']
+        if "=" in label:
+            node.append(n)
+    return node
 
 def extract_branching_condition(node):
-	label = G2.node[node]['label']
-	label = label.strip()
-	m = re.findall(r'\b\d+\b', label)
-	if m:
-		return m[0]
-	return None
+    label = G2.node[node]['label']
+    label = label.strip()
+    m = re.findall(r'\b\d+\b', label)
+    if m:
+        return m[0]
+    return None
+
+def extract_larger_operator(constrain):
+    return constrain.replace(">=","<")
+
+
+def print_constraint(constrains):
+    s = ' && '.join(constrains)
+    print s
 
 def path_constrain(cycle):
-	branching_node = find_branching_node(cycle)
-	assignment_nodes = find_assignment_node(cycle)
-	print assignment_nodes
-	condition = extract_branching_condition(branching_node)
-	for i in range(int(condition)):
-		print i 
+    constrains = list()
+    branching_node = find_branching_node(cycle)
+    assignment_nodes = find_assignment_node(cycle)
+    print G2.node[assignment_nodes[0]]
+    condition = extract_branching_condition(branching_node)
+    condition = int(condition)
+    i0 = condition
+
+    base_constraints = "i0" + " >= " + str(condition)
+
+    constrains.append(base_constraints)
+    print_constraint(constrains)
+    for i in range(1,5):
+        last_constraint = constrains[len(constrains)-1]
+        last_constraint = extract_larger_operator(last_constraint)
+        constrains[len(constrains) - 1] = last_constraint
+        constrain = "i0 + " + str(i) + " >= " + str(condition)
+        constrains.append(constrain)
+
+        print_constraint(constrains)
+
+        condition = condition - 1
 
 
 G2=nx.DiGraph(nx_pydot.read_dot("cfg_testsum.dot"))
 
-cycles = recursive_simple_cycles(G2)
+cycles = nx.recursive_simple_cycles(G2)
 cycle = cycles[0]
 
 # print find_branching_node(cycle)
